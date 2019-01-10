@@ -1,14 +1,15 @@
 #Libraries
 library(plyr)
+library(ggplot2)
 
 #
 #previously worked on data from lines 6 through 400ish:
-setwd("~/Dropbox/000-Bill and Katie Work")
+#setwd("~/Dropbox/000-Bill and Katie Work")
 load(file="IHUB_Oct2018.rdata" )
 #############
 #Load raw data
 
-setwd("~/Dropbox/000-Bill and Katie Work")
+#setwd("~/Dropbox/000-Bill and Katie Work")
 a1<-read.csv(file="testfile_oct2018.csv", header = T, stringsAsFactors = F)
 
 #Functions
@@ -167,7 +168,7 @@ save(a, file="IHUB_Oct2018.rdata")
 #Now Individual Tests
 
 save(a, file="IHUB_Oct2018.rdata")
-
+load(file="IHUB_Oct2018.rdata")
 test<-ddply(a[a$FORM!="A1" & 
                 a$FORM!="A2" &
                 a$FORM!="B1" &
@@ -313,10 +314,11 @@ test<-ddply(a[a$FORM__P!="A1" &
                                                            "T2__POST", "T3__POST", "T4__POST")],                                    
                                                         tot=10))})
 a<-merge(a, test, by="ID", all.x=T)
-
+save(a, file="IHUB_Oct2018.rdata")
 #########
 #Droppping blanks
-a1<-a
+#a<-a2
+a2<-a
 #No blanks for Finch Pre1
 test<-a$ID[which(a$FinchPreT2==(-0.03))]
 a<-a[-which(a$ID %in% test),]   #21 blanks
@@ -418,22 +420,59 @@ sumtable[1:4,2:16]<-sumtable[1:4,2:16]*100
 sumtable[5,2:16]<-as.character(round(sumtable[5,2:16],0))
 names(sumtable)<-gsub("_", "\n", names(sumtable))
 sumtable<-sumtable[,c(1, order(as.numeric(sumtable[1,2:16]))+1)]
+load(file="sumtable_IHUB_Oct2018.rdata")
 save(sumtable, file="sumtable_IHUB_Oct2018.rdata")
+write.csv(sumtable, file="Sumtable_IHUB_Oct2018.csv")
 
 library(reshape)
-b$id<-1:nrow(b)
+b$id<-a$ID
 c<-melt(b[,16:length(b)], id="id")
 d<-c[is.na(c$value)==F,]
 table(d$variable)#Drop levels with no obsrvations
 varlav<-names(table(d$variable))
 d$variable<-factor(d$variable) #levels= varlav[c(7,10,1,4,11,2,5,8,3,6,9)])
 aov1<-aov(value~variable, data=d)
+lm1<-lm(value~variable, data=d)
 aov1
 summary(aov1)
+summary(lm1)
 TukeyHSD(aov1)
+save(d, file="Oct_IHUB_RegressionData.rdata")
 
+teach<-a[ , which(names(a) %in% c("ID", "TEACHER_NAME"))]
+dwteach<-merge(d, teach, by.x="id", by.y="ID", all.x=T)
+dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[5], 
+                         names(table(dwteach$variable))[3],
+                         names(table(dwteach$variable))[2],
+                         names(table(dwteach$variable))[9],
+                         names(table(dwteach$variable))[1],
+                         names(table(dwteach$variable))[10],
+                         names(table(dwteach$variable))[7],
+                         names(table(dwteach$variable))[6],
+                         names(table(dwteach$variable))[8],
+                         names(table(dwteach$variable))[13],
+                         names(table(dwteach$variable))[14],
+                         names(table(dwteach$variable))[11],
+                         names(table(dwteach$variable))[4],
+                         names(table(dwteach$variable))[12]))
+dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[2:3], 
+                                                    names(table(dwteach$variable))[1],
+                                                    names(table(dwteach$variable))[4:14]))
+dwteach$TEACHER_NAME<-factor(dwteach$TEACHER_NAME, levels=c(names(table(dwteach$TEACHER_NAME))[2], 
+                                                    names(table(dwteach$TEACHER_NAME))[1],
+                                                    names(table(dwteach$TEACHER_NAME))[3:11]))
+lmteach<-lm(value~variable+TEACHER_NAME, data=dwteach)
+summary(lmteach)
 
+lmteach_int<-lm(value~variable*TEACHER_NAME, data=dwteach)
+summary(lmteach_int)
 
+lm3<-lm(value~variable, data=dwteach)
+summary(lm3)
+###########
+#Regression of just pre post
+lm2<-lm(posttest~pretest, data=a)
+summary(lm2)
 #########
 #Graphs
 library(ggplot2)
@@ -459,7 +498,7 @@ theme(
                      breaks=c(-0.6,-0.3,0,0.3,0.6 ),
                      labels=c("-60%","-30%", "0%", "30%", "60%"))+
   scale_x_discrete(name="")
-
+bplot_macro
 ggsave(bplot_macro,file="Boxplot_FullTest_Oct2018.pdf", width=12, height=11)
 
 
@@ -473,6 +512,10 @@ bplot<-
     axis.title=element_text( size=12, color="black"),
     axis.ticks=element_line(size=2, color="black"),
     title=element_text( size=12, face="bold"),
+    panel.background = element_rect(fill = "white",
+                                    colour = "white"),
+    panel.grid.major  = element_blank(),
+    panel.grid.minor = element_blank(),
     plot.title = element_text(hjust=0),
     axis.line=element_line(size=1, color="black"),
     legend.text =element_text(size=9),
@@ -484,9 +527,10 @@ bplot<-
                      breaks=c(-0.9,-0.6,-0.3,0,0.3,0.6, 0.9),
                      labels=c("-90%","-60%","-30%", "0%", "30%", "60%", "90%"))+
   scale_x_discrete(name="")
-
+bplot
 library(gtable)
 library(grid)
+library(gridExtra)
 #names(sumtable)[2:12]<-gsub("_","\n",names(sumtable)[2:12])
 tt<-ttheme_minimal(core=list(fg_params=list(cex=0.8)),
                    colhead=list(fg_params=list(cex=0.7,  fontface=2L))
@@ -500,21 +544,25 @@ tbl<-gtable_add_grob(tbl,
                                           gp = gpar(lwd = 2.0)),
                      t = 1, b = 1, l = 1, r = ncol(tbl))
 #grid.arrange(bplot, tbl, nrow=2, as.table=T, heights=c(3,1))
-tbl<-tbl<-gtable_add_grob(tbl,
+tbl<-gtable_add_grob(tbl,
                           grobs=segmentsGrob(  x0 = unit(0,"npc"),
                                                y0 = unit(0,"npc"),
                                                x1 = unit(1,"npc"),
                                                y1 = unit(0,"npc"),
                                                gp = gpar(lwd = 2.0)),
                           t = 6, b = 6, l = 1, r = ncol(tbl))
-tbl<-tbl<-gtable_add_grob(tbl,
+tbl<-gtable_add_grob(tbl,
                           grobs=segmentsGrob(  x0 = unit(1,"npc"),
                                                y0 = unit(0,"npc"),
                                                x1 = unit(0,"npc"),
                                                y1 = unit(0,"npc"),
                                                gp = gpar(lwd = 2.0)),
                           t = 1, b = 1, l = 1, r = ncol(tbl))
+bplot
+save(bplot, file="boxplot.rdata")
+save(tbl, file="table.rdata")
 
+ggsave("tbl.pdf", tbl)
 boxplot_w_table<-grid.arrange(bplot, tbl, nrow=2, as.table=T,
                               heights=c(2,1))
 library(cowplot)
@@ -524,13 +572,17 @@ boxwtab<-plot_grid(
   ncol=1,
   rel_widths = c(1,0.1), rel_heights = c(2,1)
 )
-setwd("~/Dropbox/000-Bill and Katie Work")
-pdf(file="Boxplot_TaskOrder_Oct2018.pdf", height=10,width=14)
-boxwtab
+#setwd("~/Dropbox/000-Bill and Katie Work")
+pdf(file="BoxplotAlone_TaskOrder_Oct2018.pdf", height=10,width=14)
+bplot
 dev.off()
+#pdf(file="Table_TaskOrder_Oct2018.pdf", height=10,width=14)
+#tbl
+#dev.off()
+
 ggsave(boxplot_w_table,file="Boxplot_TaskOrder_Oct2018.pdf", width=12, height=11)
 print(boxplot_w_table)
-
+boxplot_w_table
 
 ###########
 #Mean and SD of scores
@@ -570,3 +622,8 @@ ethtest<-lm((diff*100)~factor(coleth), data=a)
 ethtest
 summary(ethtest)
 gentest
+
+##########
+#Stargazer attempt
+library(stargazer)
+stargazer(type="latex", lm3,lmteach, style="qje", out="test.txt")
