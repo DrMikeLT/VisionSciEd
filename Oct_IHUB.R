@@ -426,7 +426,7 @@ write.csv(sumtable, file="Sumtable_IHUB_Oct2018.csv")
 
 library(reshape)
 b$id<-a$ID
-c<-melt(b[,16:length(b)], id="id")
+c<-melt(b[,15:length(b)], id="id")
 d<-c[is.na(c$value)==F,]
 table(d$variable)#Drop levels with no obsrvations
 varlav<-names(table(d$variable))
@@ -439,40 +439,54 @@ summary(lm1)
 TukeyHSD(aov1)
 save(d, file="Oct_IHUB_RegressionData.rdata")
 
-teach<-a[ , which(names(a) %in% c("ID", "TEACHER_NAME"))]
+teach<-a[ , which(names(a) %in% c("ID", "TEACHER_NAME", "Gender", "Ethnicity"))]
 dwteach<-merge(d, teach, by.x="id", by.y="ID", all.x=T)
-dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[5], 
-                         names(table(dwteach$variable))[3],
-                         names(table(dwteach$variable))[2],
-                         names(table(dwteach$variable))[9],
-                         names(table(dwteach$variable))[1],
-                         names(table(dwteach$variable))[10],
-                         names(table(dwteach$variable))[7],
-                         names(table(dwteach$variable))[6],
-                         names(table(dwteach$variable))[8],
-                         names(table(dwteach$variable))[13],
-                         names(table(dwteach$variable))[14],
-                         names(table(dwteach$variable))[11],
-                         names(table(dwteach$variable))[4],
-                         names(table(dwteach$variable))[12]))
-dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[2:3], 
-                                                    names(table(dwteach$variable))[1],
-                                                    names(table(dwteach$variable))[4:14]))
+#dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[5], 
+#                         names(table(dwteach$variable))[3],
+#                         names(table(dwteach$variable))[2],
+#                         names(table(dwteach$variable))[9],
+#                         names(table(dwteach$variable))[1],
+#                         names(table(dwteach$variable))[10],
+#                         names(table(dwteach$variable))[7],
+#                         names(table(dwteach$variable))[6],
+#                         names(table(dwteach$variable))[8],
+#                         names(table(dwteach$variable))[13],
+#                         names(table(dwteach$variable))[14],
+#                         names(table(dwteach$variable))[11],
+#                         names(table(dwteach$variable))[4],
+#                         names(table(dwteach$variable))[12]))
+#dwteach$variable<-factor(dwteach$variable, levels=c(names(table(dwteach$variable))[2:3], 
+#                                                    names(table(dwteach$variable))[1],
+#                                                    names(table(dwteach$variable))[4:14]))
 dwteach$TEACHER_NAME<-factor(dwteach$TEACHER_NAME, levels=c(names(table(dwteach$TEACHER_NAME))[2], 
                                                     names(table(dwteach$TEACHER_NAME))[1],
                                                     names(table(dwteach$TEACHER_NAME))[3:11]))
-lmteach<-lm(value~variable+TEACHER_NAME, data=dwteach)
+lmteach<-lm(value~variable+TEACHER_NAME, data=dwteach1)
 summary(lmteach)
 
-lmteach_int<-lm(value~variable*TEACHER_NAME, data=dwteach)
-summary(lmteach_int)
+#lmteach_int<-lm(value~variable*TEACHER_NAME, data=dwteach)
+#summary(lmteach_int)
 
+dwteach1<-dwteach
+dwteach$variable<-relevel(dwteach$variable, ref=3)
 lm3<-lm(value~variable, data=dwteach)
 summary(lm3)
+
+lmteachgend<-lm(value~variable+TEACHER_NAME+Gender, data=dwteach)
+summary(lmteachgend)
+dwteach$Ethnicity<-factor(dwteach$Ethnicity, levels=c(5, 1:4,6:7))
+lmteachgendeth<-lm(value~variable+TEACHER_NAME+factor(Gender)+Ethnicity, data=dwteach)
+summary(lmteachgendeth)
 ###########
 #Regression of just pre post
 lm2<-lm(posttest~pretest, data=a)
 summary(lm2)
+
+##########
+#Stargazer attempt
+library(stargazer)
+stargazer(type="html", lm3,lmteach, lmteachgendeth, style="qje", out="fullregression.html")
+# order=c(4, 1,))
 #########
 #Graphs
 library(ggplot2)
@@ -480,7 +494,7 @@ library(gtable)
 
 
 
-bplot_macro<-ggplot(data=a, aes(x=COMBO, y=diff))+geom_boxplot()+
+bplot_macro1<-ggplot(data=a, aes(x=COMBO, y=diff))+geom_boxplot()+
 theme(
   axis.text=element_text(size=12, color="black"),
   axis.text.x = element_text(angle=90),
@@ -623,7 +637,98 @@ ethtest
 summary(ethtest)
 gentest
 
-##########
-#Stargazer attempt
-library(stargazer)
-stargazer(type="latex", lm3,lmteach, style="qje", out="test.txt")
+
+
+
+###########
+#Create a table showing average scores for pre tasks and post tasks
+#(perhaps including teachers) per Jennifer Jacob's suggestion
+prenam<-names(b)[grep("PreT", names(b))]
+postnam<-names(b)[grep("PostT", names(b), fixed=T)]
+nams<-c(prenam,postnam)
+tech<-names(table(a$TEACHER_NAME))
+
+meantable<-setNames(data.frame(matrix(ncol=length(tech)+4, nrow=(length(prenam)+length(postnam)))),
+                   c("Pre-Post","Task","Total","SD",  tech))
+meantable$`Pre-Post`<-c(rep("Pre", length(prenam)),rep("Post", length(postnam)))
+meantable$Task<-c(prenam,postnam)
+
+mn<-NA
+ct<-1
+for (i in nams){
+  mn[ct]<-round(mean(a[i][,1], na.rm = T),2)
+  ct<-ct+1
+}
+meantable$Total<-mn
+
+sd<-NA
+ct<-1
+for (i in nams){
+  mn[ct]<-round(mean(a[i][,1], na.rm = T),2)
+  ct<-ct+1
+}
+meantable$Total<-mn
+
+#kct<-4
+ict<-1
+for(k in tech){
+  for (i in nams){
+    meantable[ict,k]<-round(mean(a[a$TEACHER_NAME==k,][i][,1], na.rm=T), 2)
+    ict<-ict+1
+    
+  }
+  ict<-1
+  
+}
+write.csv(meantable, file="MEANtable_IHUB_Oct2018.csv")
+
+##############
+#Teacher Descriptives
+tech<-names(table(a$TEACHER_NAME))
+
+desctable<-setNames(data.frame(matrix(ncol=8, nrow=length(tech))),
+                    c("Teacher","Mean","Std Dev", "Min", "25th", "Median", "75th", "Max"))
+desctable$Teacher<-tech
+ct<-1
+for (i in tech){
+  desctable$Mean[ct]<-round(mean(a$diff[a$TEACHER_NAME==i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$`Std Dev`[ct]<-round(sd(a$diff[a$TEACHER_NAME==i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$Min[ct]<-round(min(a$diff[a$TEACHER_NAME==i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$`25th`[ct]<-round(quantile(a$diff[a$TEACHER_NAME==i], na.rm = T, probs=(0.25)), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$`75th`[ct]<-round(quantile(a$diff[a$TEACHER_NAME==i], na.rm = T, probs=(0.75)), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$Max[ct]<-round(max(a$diff[a$TEACHER_NAME==i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in tech){
+  desctable$Median[ct]<-round(median(a$diff[a$TEACHER_NAME==i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+write.csv(desctable, file="TEACHtable_IHUB_Oct2018.csv")
