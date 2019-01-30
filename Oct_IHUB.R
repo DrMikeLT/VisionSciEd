@@ -648,8 +648,8 @@ postnam<-names(b)[grep("PostT", names(b), fixed=T)]
 nams<-c(prenam,postnam)
 tech<-names(table(a$TEACHER_NAME))
 
-meantable<-setNames(data.frame(matrix(ncol=length(tech)+4, nrow=(length(prenam)+length(postnam)))),
-                   c("Pre-Post","Task","Total","SD",  tech))
+meantable<-setNames(data.frame(matrix(ncol=9, nrow=(length(prenam)+length(postnam)))),
+                   c("Pre-Post","Task","Total","SD", "Min", "25th", "Median", "75th", "Max"))
 meantable$`Pre-Post`<-c(rep("Pre", length(prenam)),rep("Post", length(postnam)))
 meantable$Task<-c(prenam,postnam)
 
@@ -664,20 +664,52 @@ meantable$Total<-mn
 sd<-NA
 ct<-1
 for (i in nams){
-  mn[ct]<-round(mean(a[i][,1], na.rm = T),2)
+  sd[ct]<-round(sd(a[i][,1], na.rm = T),2)
   ct<-ct+1
 }
-meantable$Total<-mn
+meantable$SD<-sd
 
+#If you want means by teacher
 #kct<-4
-ict<-1
-for(k in tech){
-  for (i in nams){
-    meantable[ict,k]<-round(mean(a[a$TEACHER_NAME==k,][i][,1], na.rm=T), 2)
-    ict<-ict+1
-    
-  }
-  ict<-1
+#ict<-1
+#for(k in tech){
+#  for (i in nams){
+#    meantable[ict,k]<-round(mean(a[a$TEACHER_NAME==k,][i][,1], na.rm=T), 2)
+#    ict<-ict+1
+#    
+#  }
+#  ict<-1
+#  
+#}
+
+ct<-1
+for (i in nams){
+  meantable$Min[ct]<-round(min(a[i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in nams){
+  meantable$`25th`[ct]<-round(quantile(a[i], na.rm = T, probs=(0.25)), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in nams){
+  meantable$`75th`[ct]<-round(quantile(a[i], na.rm = T, probs=(0.75)), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in nams){
+  meantable$Max[ct]<-round(max(a[i], na.rm = T), 2)
+  ct<-ct+1
+  
+}
+ct<-1
+for (i in nams){
+  meantable$Median[ct]<-round(quantile(a[i], na.rm = T, probs=(0.5)), 2)
+  ct<-ct+1
   
 }
 write.csv(meantable, file="MEANtable_IHUB_Oct2018.csv")
